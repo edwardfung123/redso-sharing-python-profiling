@@ -1,5 +1,14 @@
 # Profiling a python script
 
+## tldr (AKA executive summary)
+
+- use `cProfile` to see the total time, average time and # of calls
+- use `pycallgraph` for visualization
+- After all, the tools just give you insight. you still need to clean your own shit
+	by reading your source code.
+
+## Long story
+
 Let's use the _famous_ Fibonacci numbers. If you are interested in the history
 and applications of Fibonacci numbers, I suggest you to visit the [wikipedia
 page](https://en.wikipedia.org/wiki/Fibonacci_number). The Fibonacci number is
@@ -59,17 +68,23 @@ In this case, we can easily tell that the program is very slow. As a
 programmer, just telling me the program is slow is not so helpful. What I
 really need are:
 
-1. Why the program is slow 2. How slow it is 3. A way to compare the speed of
-two programs that doing the same task
+1. Why the program is slow
+2. How slow it is
+3. A way to compare the speed of two programs given that they are performing
+the same task
 
-Let's address the first issue "Why the program is slow". One way to do that is
-to "use the source, Luke". It has a more "professional" way to say this. It is
-called "[Static program
+Let's address the first issue "Why the program is slow".
+
+One way to do that is to "use the source, Luke". 
+
+![Use the source, luke](http://www.bezdelnique.ru/wp-content/uploads/2009/08/use_source_luke.png)
+
+The more "professional" way to say this is [Static program
 analysis](https://en.wikipedia.org/wiki/Static_program_analysis). *Static
-program analysis* is used not just for performance improvement but also
-locating potentially vulnerable code for both black hats and white hats. We all
-read code before. Let's try the "dynamic program analysis" AKA "run the program
-and see what will happen".
+program analysis* is used not only for performance improvement but also
+locating potentially vulnerable code by both black hats and white hats. We all
+read code before. Let's try the "dynamic program analysis" which is "run the
+program and see what will happen".
 
 ## Dynamic program analysis
 
@@ -83,44 +98,47 @@ In general, a typical profiler (language independent) tells:
 - how many times a function is called
 - how much memory usage
 
-A profiler can help you to fix some time limit exceed error and out of memory
-error. Python comes with a
-[profiler](https://docs.python.org/2/library/profile.html). You can both import
-it in your python script or run it in the CLI.
+Some profilers check for race condition, code coverage, network usage and so
+on...
+
+A profiler can help you to fix some of the *time limit exceed error* and *out
+of memory error*. Python comes with a
+[profiler](https://docs.python.org/2/library/profile.html). To use it, you can
+import it in your python script or run it from the command line.
 
 ### Profiling the first implementation
 
 To facilitate the profiling and testing, the `main.py` need to be updated. The
 updated `main.py` is appended.
 
-Let's find the first 30-th Fibonacci number and see how bad our program is. (30
+Let's find the 30-th Fibonacci number and see how bad our program is. (30
 is where the program starts to become "slow".)
 
 ```
-N=30 python -m cProfile -s time main.py
+S=30 N=30 python -m cProfile -s time main.py
 ```
 
 The output (truncated):
 
 ```
-         7049635 function calls (543 primitive calls) in 2.192 seconds
+         2693037 function calls (501 primitive calls) in 0.836 seconds
 
    Ordered by: internal time
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-7049123/31    2.185    0.000    2.185    0.070 main.py:4(fibonacci_v1)
-        1    0.003    0.003    0.006    0.006 __init__.py:24(<module>)
+2692537/1    0.828    0.000    0.828    0.828 main.py:6(fibonacci_v1)
+        1    0.004    0.004    0.007    0.007 __init__.py:24(<module>)
         1    0.001    0.001    0.002    0.002 collections.py:11(<module>)
-        1    0.001    0.001    2.192    2.192 main.py:1(<module>)
+        1    0.001    0.001    0.836    0.836 main.py:3(<module>)
         1    0.001    0.001    0.001    0.001 heapq.py:31(<module>)
         1    0.000    0.000    0.001    0.001 threading.py:1(<module>)
-       31    0.000    0.000    0.000    0.000 {method 'format' of 'str' objects}
+        2    0.000    0.000    0.000    0.000 sre_parse.py:395(_parse)
 ```
 
 The first column `ncalls` is number of call to the function. The function is
 showed in the last column. `tottime` is the total time spent on this function.
 Other columns are not that important at this moment. Sometimes there are two
-numbers in the `ncalls` column.
+numbers in the `ncalls` column. Quote from the doc.
 
 > When there are two numbers in the first column (for example 3/1), it means
 > that the function recursed. The second value is the number of primitive calls
@@ -133,13 +151,13 @@ function is called in your program, some memory is used to store the current
 state such the the value of the local variables of the program before going to
 the function.  After executing the function, the program restores its previous
 state.  It takes time and memory space to save/load the states. (This process
-uses `stack`. `stack trace` and `stack overflow` are related.)  This
-function-call overhead _stacks_ up.  But I am not asking you to
-write everything in one big function.  It might be executed fast but it trades
-code readability and maintainability.  But this is the topic for another day.
-In our simple Fibonacci number example, memory might not be an issue. But in
-GAE, the memory is limited to 128MB. It would be a big problem if your program
-used too much memory.
+uses `stack`. `stack frame`, `call stack`, `stack trace` and `stack overflow`
+are related.)  This function-call overhead _stacks_ up.  But I am not asking
+you to write everything in one big function.  It might be executed fast but it
+trades code readability and maintainability.  But this is the topic for another
+day.  In our simple Fibonacci number example, memory might not be an issue. But
+in GAE, the memory is limited to 128MB. It would be a big problem if your
+program used too much memory.
 
 There is another way to get some insights about the program. We can generate a
 callgraph. The graph is a directed graph. We can understand the caller-callee
@@ -185,10 +203,10 @@ def fibonacci_v1b(n):
 ```
 
 
-We trade memory space for
-computation time. After that, we can sucessfully compute `F(30)` or `F(50)`
-quickly because we eliminate the reduntant computations. How about `F(1000)`?
-Well we still can't get it. The program received an error message:
+We trade memory space for computation time. After that, we can sucessfully
+compute `F(30)` or `F(50)` quickly because we eliminate the reduntant
+computations. How about `F(1000)`?  Well we still can't get it. The program
+received an error message:
 
 ```
 RuntimeError: maximum recursion depth exceeded
@@ -262,13 +280,21 @@ should be able to prove it with MI... Let's assume the wiki and the Maths are
 true. We get two identities from the matrix form and allow us to derive `O(log
 n)` algo.
 
+## Next step?
+
+Let's take a look what memory profiler can do.
+
 # Updated `main.py`
 
 ```
+#!/usr/bin/env python27
+
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 def fibonacci_v1(n):
+  '''The naive recursive implementation. It starts not working when n is around
+  30-40.'''
   if n == 0:
     return 0
 
@@ -278,8 +304,37 @@ def fibonacci_v1(n):
   return fibonacci_v1(n-1) + fibonacci_v1(n-2)
 
 
+class memorize(object):
+  '''A simple cache.'''
+  def __init__(self):
+    self.cache = {}
+
+  def __call__(self, fn):
+    from functools import wraps
+    @wraps(fn)
+    def wrapped(*args):
+      if args not in self.cache:
+        #logging.debug('not cached. key = {}'.format(args))
+        self.cache[args] = fn(*args)
+      return self.cache[args]
+    return wrapped
+
+
+@memorize()
+def fibonacci_v1b(n):
+  '''Memorize the previous result to reduce function calls.'''
+  if n == 0:
+    return 0
+
+  if n == 1:
+    return 1
+
+  return fibonacci_v1b(n-1) + fibonacci_v1b(n-2)
+
 
 def fibonacci_v2(n):
+  ''' An iterative implementation. Should be faster and use constant memory
+  compared to the naive recursive implementation.'''
   f0 = 0
   f1 = 1
   if n == 0:
@@ -305,6 +360,7 @@ if __name__ == '__main__':
   import os
   fn = globals()['fibonacci_' + os.getenv('F', 'v1')]
   if os.getenv('ENV') == 'TEST':
+    # for testing the correctness of the implementations.
     for i, tc in enumerate(test_cases):
       try:
         args, expected = tc[:-1], tc[-1]
@@ -314,6 +370,8 @@ if __name__ == '__main__':
         logging.error((args, expected))
   else:
     n = int(os.getenv('N', '10'))
-    for x in xrange(n + 1):
+    start = int(os.getenv('S', '0'))
+    assert start <= n
+    for x in xrange(start, n + 1, 1):
       print 'F({}) = {}'.format(x, fn(x))
 ```

@@ -4,6 +4,8 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 def fibonacci_v1(n):
+  '''The naive recursive implementation. It starts not working when n is around
+  30-40.'''
   if n == 0:
     return 0
 
@@ -14,6 +16,7 @@ def fibonacci_v1(n):
 
 
 class memorize(object):
+  '''A simple cache.'''
   def __init__(self):
     self.cache = {}
 
@@ -30,6 +33,7 @@ class memorize(object):
 
 @memorize()
 def fibonacci_v1b(n):
+  '''Memorize the previous result to reduce function calls.'''
   if n == 0:
     return 0
 
@@ -40,6 +44,8 @@ def fibonacci_v1b(n):
 
 
 def fibonacci_v2(n):
+  ''' An iterative implementation. Should be faster and use constant memory
+  compared to the naive recursive implementation.'''
   f0 = 0
   f1 = 1
   if n == 0:
@@ -65,6 +71,7 @@ if __name__ == '__main__':
   import os
   fn = globals()['fibonacci_' + os.getenv('F', 'v1')]
   if os.getenv('ENV') == 'TEST':
+    # for testing the correctness of the implementations.
     for i, tc in enumerate(test_cases):
       try:
         args, expected = tc[:-1], tc[-1]
