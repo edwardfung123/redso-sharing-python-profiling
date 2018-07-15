@@ -73,3 +73,8 @@ So run the `dev_appserver.py` with the arg `--log_level=debug`. Whenever a
 forbidden c-module is imported, it will show the error `ImportError: No module
 named guppy.heapy.heapyc` and print the module name before the error message.
 Add the module name into the array. Repeat until no error.
+
+# TODO:
+
+add README and steps to use the profilers. currently the use case and
+instructions in my brain and undocumented code only.
